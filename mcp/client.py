@@ -68,7 +68,6 @@ async def run(message):
                 create_manage_memory_tool(namespace=("memories",)),
                 create_search_memory_tool(namespace=("memories",)),
             ]
-
             # Create and run the agent
             agent = create_react_agent(model, tools, store=store)
             agent_response = await agent.ainvoke({"messages": message})
@@ -80,7 +79,7 @@ async def run(message):
 
 #asyncio.run(run())
 
-GRAPH_EXPLANATION_PROMPT = '''
+GRAPH_EXPLANATION_PROMPT = f'''
 🧠 Role
 You are a friendly and intelligent AI assistant specialized in helping food business owners understand visual charts and business data. Your user is a food merchant with over 20 years of experience in selling food, but has little experience with computers or data analysis.
 
@@ -102,6 +101,7 @@ Important Notes:
 - Focus only on what the seller needs to do better.
 - Never include code or chart details.
 - Remember this data for later use.
+
 '''
 
 
@@ -282,7 +282,7 @@ def initial_analysis():
 
     images_mapping = {'img2.png':['hourly_order', 'collection.find_one({"order_hour": 16}, {"order_count": 1, "_id": 0})'], 'img3.png': ['multi_day_hourly','collection.find_one({"order_day": "Sunday", "order_hour": 16},{"_id": 0, "order_count": 1})'], 'img5.png': ['food_breakdown', 'list(collection.find({"order_month": target_date},{"_id": 0, "item_name":1, "monthly_quantity": 2}))'], 'imj_4.png': ['monthly_income', 'collection.find_one({"order_month": target_date},{"_id": 0, "order_value": 1} )'], 'monthly_customers.png':['customer_growth','collection.find_one({"order_month": target_date},{"_id": 0, "New": 1,"Recurring":2,"New_change_%":3,"Recurring_Change_%":4})']}
     non_graph_collections = [i for i in db.list_collection_names() if i not in [j[0] for j in images_mapping.values()] + ['fs.chunks', 'fs.files']]
-    non_graph_container = [get_transport_average(db['transport']), get_ranking(db['ranking'],merchant_id), get_monthly_income(db['monthly_summary'], target_date),get_cuisine_price(db['monthly_cuisine_items'], merchant_id, db)]
+    non_graph_container = [get_monthly_income(db['monthly_summary'], target_date), get_ranking(db['ranking'],merchant_id),get_transport_average(db['transport']),get_cuisine_price(db['monthly_cuisine_items'], merchant_id, db)]
 
     # Find by filename or ID
     for file in fs.find():
@@ -308,6 +308,7 @@ def initial_analysis():
                 )
             ]
             description = asyncio.run(run(message))
+            file.seek(0)
             with open(file.filename, "wb") as f:
                 f.write(file.read())
             graph_containers.append(GraphContainer(
@@ -332,7 +333,6 @@ def initial_analysis():
         suggestions = identify_bottleneck_opportunity()
         w.write(suggestions)
 
-initial_analysis()
 
 def normal_run(query):
     ORDINARY_PROMPT = f'''
@@ -372,3 +372,5 @@ Information:
             ]
     asyncio.run(run(message))
 
+
+normal_run("今天中国和大马有些合作的机会吗?")
