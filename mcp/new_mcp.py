@@ -15,9 +15,11 @@ from pymongo.server_api import ServerApi
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
 
+
 @dataclass
 class AppContext:
     db: MongoClient
+
 
 @asynccontextmanager
 async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
@@ -41,30 +43,52 @@ search_tool = BraveSearch.from_api_key(api_key = brave_search_api, search_kwargs
 
 async def fetch_pages(url):
     async with httpx.AsyncClient() as client:
-        response = await client.get(url)
-        return response.text
+        try:
+            response = await client.get(url)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            body = soup.find("body")
+            if body:
+                return body.get_text(separator="\n", strip=True)
+            else:
+                return f"[No <body> tag found for {url}]"
+        except Exception as e:
+            return f"[Error fetching {url}]: {str(e)}"
+    
 
 async def main(urls):
     tasks = [fetch_pages(url) for url in urls]
     results = await asyncio.gather(*tasks)
     return results
 
-# Add an addition tool
-@mcp.tool()
-def add(a: int, b: int) -> int:
-    """Add two numbers"""
-    return a + b
-
 @mcp.tool()
 async def browse_internet(query: str) -> str:
-    """Browsing internet tools for any information or real-time data"""
-    """Format the title of each pages in h2 and content as p tag"""
+    """
+    Searches the internet in real-time to retrieve information not present in the LLM's training data.
+
+    This tool:
+    - Uses a live search engine to find relevant web pages for the given query.
+    - Fetches and parses the HTML content of each result.
+    - Returns the raw or structured content (e.g., page body text) from those pages.
+
+    Useful for answering up-to-date questions about recent events, facts, or topics the LLM may not know.
+
+    Args:
+        query (str): The user's search question or topic.
+
+    Returns:
+        str: Combined text or HTML from the <body> of top search result pages.
+    """
     result = json.loads(search_tool.run(query))
     urls = [i['link'] for i in result]
     contents = await main(urls)
     return contents
 
-            
+# Add an addition tool
+@mcp.tool()
+def add(a: int, b: int) -> int:
+    """Add two numbers"""
+    return a + b
+        
 
 @mcp.tool()
 def multiply(a: float, b:float) -> float:
